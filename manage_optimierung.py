@@ -55,6 +55,7 @@ def add_childjob_to_motherjob(childfile,motherfile):
         fil.write(f"cd {mother_to_child};")
         fil.write(f"serverJob --job {os.path.basename(childfile)};")
         fil.write(f"cd {child_to_mother}")
+        fil.write("\n")
 
 def add_generation_to_main_joblist(abspath_to_generation):
     with open(settings.get_main_joblist_file(),"r") as fil:
