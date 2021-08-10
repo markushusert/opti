@@ -17,7 +17,7 @@ def opti(pop_size, max_gen, alpha, alpha2, sigma,
   population = load_population(N, dim, rng, range_in)
   errors = np.zeros(N, dtype=np.float32)
   best_over_gen = np.zeros(max_gen+1, dtype=np.float32)
-  gen_number = np.zeros(N, dtype=np.float32)
+  gen_number = np.zeros(N, dtype=np.uint)
 
   #evaluate starting population
   for i in range(N):
