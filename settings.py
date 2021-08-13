@@ -15,15 +15,22 @@ g_calculation_basename="calc_"
 g_param_file="params.txt"
 g_save_dir="saves"
 g_savebasename="save_"
+g_local_pop_file="local_pop.txt"
+
+g_debug=True#flag to indicate that script is still in developpement, and no calculations should be started
 
 g_settings_dir=".opti"
 if not os.path.isdir(g_settings_dir):
     print(f"current directory needs to contain a {g_settings_dir}-directory")
     print("make sure you are starting script in correct directory")
 g_joblistfilename="job.list"
-g_settings_to_read=["g_dimension","g_pop_size"]
+g_settings_to_read=["g_dimension","g_pop_size","g_submit_cmd","g_post_cmd"]
 g_dimension=None
 g_pop_size=None
+g_submit_cmd=None
+g_post_cmd=None
+
+
 
 def get_param_file():
     possible_settings_dirs=get_settings_dirs()
@@ -33,6 +40,11 @@ def get_param_file():
         return possible_param_files[-1]
     else:
         raise Exception(f"could not find any param-files named {g_param_file} in {possible_settings_dirs}")
+def get_generation_listfile():
+    return os.path.join(get_run_data_dir(),g_generation_list)
+def get_generation_path(generation_nr):
+    new_generation_name=get_generation_dirname(generation_nr)
+    return os.path.join(get_run_dir(),g_generation_dir,new_generation_name)
 def get_calculation_dirname(calc_nr):
     return g_calculation_basename+str(calc_nr)
 def get_generation_dirname(new_gen_nr):
@@ -45,10 +57,12 @@ def get_settings_dirs():
 def get_savefile_name(number):
     return f"{g_savebasename}_{number}.txt"
 def get_savefile_number(savefile_name):
-    tokens=re.split('([0-9]+)', savefile_name)#split filename in numreic and alphabetical chunks
+    return get_only_number_of_string(savefile_name)
+def get_only_number_of_string(string):
+    tokens=re.split('([0-9]+)', string)#split filename in numreic and alphabetical chunks
     numeric_tokens=[aux.tryint(token) for token in tokens if type(aux.tryint(token))]
     if len(numeric_tokens) !=1:
-        raise Exception(f"only one number is supposed to be in string: {savefile_name}")
+        raise Exception(f"only one number is supposed to be in string: {string}")
     else:
         return numeric_tokens[0]
 def get_run_data_dir():
@@ -95,7 +109,7 @@ def read_settings():
                                     #interpret paths in settings.txt relative to given textfile
                                     globals()[key]=os.path.abspath(os.path.join(modell_file,globals()[key]))
                                 break
-                    fil
+                    
     unset_settings=[key for key,value in found_setting.items() if not value]
     if len(unset_settings):
         raise Exception(f"could not find settings: {unset_settings}")

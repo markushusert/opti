@@ -62,16 +62,21 @@ def get_parameters_to_set(coordinates):
                 except:
                     raise Exception(f"could not evaluate to float expression: {value}")
     return parameter_value_dict
-def get_latest_gen():
+def get_all_gens():
+    dir_of_generations=os.path.join(settings.get_run_dir(),settings.g_generation_dir)
+    generation_dirs=glob.glob(os.path.join(dir_of_generations,settings.g_generaton_basename+"*"))
+    generation_dir_names=[os.path.basename(dir) for dir in generation_dirs]
+    dirs_sorted=generation_dir_names.sort(key=settings.get_only_number_of_string)
+    return dirs_sorted
+
     #return tuple (name,nr) of last generation that has been created
-    data_dir=settings.get_run_data_dir()
-    generation_list_file=os.path.join(data_dir,settings.g_generation_list)
+    generation_list_file=settings.get_generation_listfile()
     if not os.path.isfile(generation_list_file):
-        return None,-1
+        return None,0
     else:
         with open(generation_list_file,"r") as fil:
             generation_list=[line.strip() for line in fil.readlines()]
-        return generation_list,len(generation_list)-1#-1 because gen_nr starts at 0
+        return generation_list,len(generation_list)
 def eval_generation(generation_name):
     print("todo, eval generation")
     return
@@ -83,13 +88,76 @@ def create_new_generation(population,gen_numbers,errors,new_gen_nr):
         #no savefile found, create starting population from scratch
         new_population=algo.create_starting_population(new_pop_size)
 
-    new_generation_name=settings.get_generation_dirname(new_gen_nr)
-    new_generation_path=os.path.join(settings.get_run_dir(),settings.g_generation_dir,new_generation_name)
+    new_generation_path=settings.get_generation_path(new_gen_nr)
     create_new_path_in_project(new_generation_path)
+    add_generation_to_list(new_generation_path)
+    write_population(new_generation_path,population)
 
     for specimen_nr,specimen_coords in enumerate(new_population):
         create_calulation_dir(new_generation_path,specimen_nr,specimen_coords)
-        
+
+def add_generation_to_list(new_generation_path):
+    generation_name=os.path.basename(new_generation_path)
+    generation_listfile=settings.get_generation_listfile()
+    with open(generation_listfile,"a") as fil:
+        fil.write(generation_name+"\n")
+    return
+def run_generation(generation_dir):
+    jobfile_name=settings.g_joblistfilename
+    cmd=f"serverJob --job {jobfile_name}"
+    if settings.g_debug:
+        print(f"would be executing \"{cmd}\" in {generation_dir}")
+    else:
+        subprocess.run(cmd,cwd=generation_dir)
+def eval_generation(generation_nr):
+    path_to_generation=settings.get_generation_path(generation_nr)
+    population_to_add=read_population(path_to_generation)
+    gen_nr_to_add=np.ones(population_to_add.shape[0])
+    if not settings.g_debug:
+        download_results(path_to_generation)
+    errors_to_add=np.zeros(population_to_add.shape[0])
+    errors_to_add=get_errors_of_population(path_to_generation,errors_to_add)
+    return population_to_add,gen_nr_to_add,errors_to_add
+def write_local_serverjobfile(path_to_calculation_dir):
+    serverjob_file=os.path.join(path_to_calculation_dir,settings.g_joblistfilename)
+    with open(serverjob_file,"w") as fil:
+        fil.write(settings.g_submit_cmd)
+    
+    
+def get_errors_of_population(path_to_generation,errors_to_add):
+    #errors_to_add=preallocated np.ndarray, of shape(n_calc,) to be filled by this function
+    calculation_dirs=glob.glob(os.path.join(path_to_generation,settings.g_calculation_basename+"*"))
+    calculation_dirs.sort(key=settings.get_only_number_of_string)
+    for dir_nr,dir in enumerate(calculation_dirs):
+        errors_to_add[dir_nr]=get_error_of_calculation(dir)
+
+def get_error_of_calculation(calculation_dir):
+    error_key="error="
+    if settings.g_debug:
+        error=np.random(0,1)#random error between 0 and 1
+    else:
+        executable=settings.g_post_cmd#"/home/markus/ParaView-5.9.0-MPI-Linux-Python3.8-64bit/python_scripts/auswerte_scripte/show_qs.py"
+        complete_proc=subprocess.run(executable,cwd=calculation_dir,capture_output=True)#popen benutzen und err_ges printen
+        output_lines=complete_proc.stdout.decode("ascii").splitlines()
+        for line in output_lines:
+            if line.startswith[error_key]:
+                error=float(line.rsplit("=",1)[1])
+                break
+        else:
+            raise ValueError(f"post-programm did not print error_message: {error_key}")
+    return error
+def download_results(path_to_generation):
+    cmd=f"serverJob --job {settings.g_joblistfilename} --download"
+    subprocess.run(cmd,path_to_generation)
+
+def write_population(new_generation_path,population):
+    population_file=os.path.join(new_generation_path,settings.g_local_pop_file)
+    np.savetxt(population_file,population)
+
+def read_population(new_generation_path):
+    population_file=os.path.join(new_generation_path,settings.g_local_pop_file)
+    population=np.loadtxt(population_file)
+    return population
 
 def create_calulation_dir(new_generation_path,specimen_nr,specimen_coords):
     calculation_dir=os.path.join(new_generation_path,settings.get_calculation_dirname(specimen_nr))
@@ -177,6 +245,7 @@ def prepare_inputdir(input_dir,coordinates):
     write_parameter_values(input_dir,parameter_values)
     copied_files=get_files(input_dir)
     set_values(input_dir,copied_files)
+    write_local_serverjobfile(input_dir)
 def write_parameter_values(input_dir,parameter_values):
     local_param_file=os.path.join(input_dir,settings.get_local_param_file())
     with open(local_param_file,"w") as fil:
@@ -192,7 +261,7 @@ def set_values(input_dir,copied_files):
         value=float(line.split()[1])
         cmd=f"sed -i \"s/{key}/{value}/g\" "+" ".join(copied_files)
         #print(cmd)
-        subprocess.run(cmd,shell=True)
+        subprocess.run(cmd,cwd=input_dir,shell=True)
 
 def get_files(input_dir):
     start_dir=os.getcwd()
