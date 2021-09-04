@@ -35,11 +35,11 @@ def opti(pop_size, max_gen, alpha, alpha2, sigma,
   best_over_gen[0]=best_err
 
   for gen in range(max_gen):
-    (p1, p2) = select_two_good(errors, alpha, alpha2, rng)#selects 2 parents for the next generation, based 
     mut_width_i=mut_width[0]- gen/max_gen*(mut_width[0]-mut_width[1]) #starts at maximum and decreases linearly
+    new_pop=make_child_population(population,errors,mut_width_i,alpha,alpha2,n_child,range_in)
+    
     for iter in range(n_child):
-        child = make_child(population, p1, p2, rng)
-        mutate(child, rng, range_in, mut_width_i)
+        child = new_pop[iter,:]
         #idx = select_bad(errors, sigma, rng)   # index of bad point --> overwritten with child # now changed to only adding childs to population, no death
 
         #evaluate child and and add results to arrays
@@ -90,7 +90,16 @@ def error(soln):
 def load_population(popsize, dim, rng, range_in):
   return np.float32(rng.uniform(low=range_in[0], high=range_in[1],
     size=(popsize,dim)))
-
+def make_child_population(population,errors,mutation_width,alpha, alpha2,n_child,range_in):
+  (p1, p2) = select_two_good(errors, alpha, alpha2, np.random)#selects 2 parents for the next generation, based 
+  dimensions=population.shape[1]
+  new_pop=np.zeros((0,dimensions))
+  for iter in range(n_child):
+      child = make_child(population, p1, p2, np.random)
+      mutate(child, np.random, range_in, mutation_width)
+      child_2d=np.reshape(child,(1,dimensions))
+      new_pop=np.append(new_pop,child_2d,axis=0)
+  return new_pop
 def make_child(population, p1, p2, rng):
   parent1 = population[p1]
   parent2 = population[p2]

@@ -2,6 +2,7 @@ import os
 from process_control.auxiliary import tryint
 import sys
 import auxiliary as aux
+import numpy as np
 import re
 
 g_workspace_dir=os.getcwd()
@@ -17,18 +18,22 @@ g_save_dir="saves"
 g_savebasename="save_"
 g_local_pop_file="local_pop.txt"
 
-g_debug=True#flag to indicate that script is still in developpement, and no calculations should be started
+g_debug=True#flag to indicate that script is still in developpement, and no calculations should be started or evaluated
 
 g_settings_dir=".opti"
 if not os.path.isdir(g_settings_dir):
     print(f"current directory needs to contain a {g_settings_dir}-directory")
     print("make sure you are starting script in correct directory")
 g_joblistfilename="job.list"
-g_settings_to_read=["g_dimension","g_pop_size","g_submit_cmd","g_post_cmd"]
+
+g_settings_to_read=["g_dimension","g_pop_size","g_submit_cmd","g_post_cmd","g_mutation_width","g_alpha","g_alpha2"]
 g_dimension=None
 g_pop_size=None
 g_submit_cmd=None
 g_post_cmd=None
+g_mutation_width=None
+g_alpha=None
+g_alpha2=None
 
 
 
@@ -54,13 +59,15 @@ def get_settings_dirs():
     #in order of relevance: last dir will overwrite previous dirs
     return [os.path.join(g_workspace_dir,g_settings_dir),os.path.join(get_run_dir(),g_settings_dir)]
     pass
+def get_savefile_dir():
+    return os.path.join(get_run_dir(),g_run_data_dir,g_save_dir)
 def get_savefile_name(number):
-    return f"{g_savebasename}_{number}.txt"
+    return f"{g_savebasename}{number}.txt"
 def get_savefile_number(savefile_name):
     return get_only_number_of_string(savefile_name)
 def get_only_number_of_string(string):
     tokens=re.split('([0-9]+)', string)#split filename in numreic and alphabetical chunks
-    numeric_tokens=[aux.tryint(token) for token in tokens if type(aux.tryint(token))]
+    numeric_tokens=[aux.tryint(token) for token in tokens if type(aux.tryint(token)) is int]
     if len(numeric_tokens) !=1:
         raise Exception(f"only one number is supposed to be in string: {string}")
     else:
@@ -94,12 +101,12 @@ def read_settings():
                 raise Exception
             else:
                 with open(modell_file,"r") as fil:
-                    for key in g_settings_to_read:
-                        for line in fil:
+                    for line in fil:
+                        for key in g_settings_to_read:
                             if line.startswith(key+"="):
                                 found_setting[key]=True
                                 try:
-                                    value=line.rsplit("=",1)[1].strip()
+                                    value=line.split("=",1)[1].strip()
                                     globals()[key]=eval(value)
                                 except:
                                     print(f"error evaluating \"{value}\"")
@@ -108,7 +115,7 @@ def read_settings():
                                 if key.endswith("dir"):
                                     #interpret paths in settings.txt relative to given textfile
                                     globals()[key]=os.path.abspath(os.path.join(modell_file,globals()[key]))
-                                break
+                                
                     
     unset_settings=[key for key,value in found_setting.items() if not value]
     if len(unset_settings):

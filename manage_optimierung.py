@@ -66,8 +66,8 @@ def get_all_gens():
     dir_of_generations=os.path.join(settings.get_run_dir(),settings.g_generation_dir)
     generation_dirs=glob.glob(os.path.join(dir_of_generations,settings.g_generaton_basename+"*"))
     generation_dir_names=[os.path.basename(dir) for dir in generation_dirs]
-    dirs_sorted=generation_dir_names.sort(key=settings.get_only_number_of_string)
-    return dirs_sorted
+    generation_dir_names.sort(key=settings.get_only_number_of_string)
+    return generation_dir_names
 
     #return tuple (name,nr) of last generation that has been created
     generation_list_file=settings.get_generation_listfile()
@@ -77,13 +77,11 @@ def get_all_gens():
         with open(generation_list_file,"r") as fil:
             generation_list=[line.strip() for line in fil.readlines()]
         return generation_list,len(generation_list)
-def eval_generation(generation_name):
-    print("todo, eval generation")
-    return
+
 def create_new_generation(population,gen_numbers,errors,new_gen_nr):
     new_pop_size=settings.g_pop_size[new_gen_nr]
     if population.shape[0]:
-        new_population=algo.create_population_via_evolution(new_pop_size)
+        new_population=algo.create_population_via_evolution(population,errors,new_pop_size,new_gen_nr)
     else:
         #no savefile found, create starting population from scratch
         new_population=algo.create_starting_population(new_pop_size)
@@ -91,11 +89,15 @@ def create_new_generation(population,gen_numbers,errors,new_gen_nr):
     new_generation_path=settings.get_generation_path(new_gen_nr)
     create_new_path_in_project(new_generation_path)
     add_generation_to_list(new_generation_path)
-    write_population(new_generation_path,population)
+    write_population(new_generation_path,new_population)
 
     for specimen_nr,specimen_coords in enumerate(new_population):
+        print(f"creating specimen {specimen_nr} of generation {new_gen_nr}")
         create_calulation_dir(new_generation_path,specimen_nr,specimen_coords)
 
+    save_current_state(population,errors,gen_numbers)
+    return new_generation_path
+    
 def add_generation_to_list(new_generation_path):
     generation_name=os.path.basename(new_generation_path)
     generation_listfile=settings.get_generation_listfile()
@@ -116,25 +118,32 @@ def eval_generation(generation_nr):
     if not settings.g_debug:
         download_results(path_to_generation)
     errors_to_add=np.zeros(population_to_add.shape[0])
-    errors_to_add=get_errors_of_population(path_to_generation,errors_to_add)
+    get_errors_of_population(path_to_generation,errors_to_add)
     return population_to_add,gen_nr_to_add,errors_to_add
 def write_local_serverjobfile(path_to_calculation_dir):
     serverjob_file=os.path.join(path_to_calculation_dir,settings.g_joblistfilename)
+    submit_cmd=add_jobdir_to_serverjob(settings.g_submit_cmd,path_to_calculation_dir)
     with open(serverjob_file,"w") as fil:
-        fil.write(settings.g_submit_cmd)
-    
+        fil.write(submit_cmd)
+
+def add_jobdir_to_serverjob(submit_cmd,path_to_calculation_dir):
+    relpath_from_rundir=os.path.relpath(path_to_calculation_dir,settings.g_run_dir)
+    return submit_cmd+f" --jobDir {relpath_from_rundir}"
     
 def get_errors_of_population(path_to_generation,errors_to_add):
     #errors_to_add=preallocated np.ndarray, of shape(n_calc,) to be filled by this function
     calculation_dirs=glob.glob(os.path.join(path_to_generation,settings.g_calculation_basename+"*"))
-    calculation_dirs.sort(key=settings.get_only_number_of_string)
+    get_gen_nr=lambda gen_dir: settings.get_only_number_of_string(os.path.basename(gen_dir))
+    calculation_dirs.sort(key=get_gen_nr)
     for dir_nr,dir in enumerate(calculation_dirs):
         errors_to_add[dir_nr]=get_error_of_calculation(dir)
+    
 
 def get_error_of_calculation(calculation_dir):
     error_key="error="
     if settings.g_debug:
-        error=np.random(0,1)#random error between 0 and 1
+        error=np.random.uniform(0,1)#random error between 0 and 1
+        
     else:
         executable=settings.g_post_cmd#"/home/markus/ParaView-5.9.0-MPI-Linux-Python3.8-64bit/python_scripts/auswerte_scripte/show_qs.py"
         complete_proc=subprocess.run(executable,cwd=calculation_dir,capture_output=True)#popen benutzen und err_ges printen
@@ -145,6 +154,7 @@ def get_error_of_calculation(calculation_dir):
                 break
         else:
             raise ValueError(f"post-programm did not print error_message: {error_key}")
+    print(f"evaluated {calculation_dir} to have error: {error}")
     return error
 def download_results(path_to_generation):
     cmd=f"serverJob --job {settings.g_joblistfilename} --download"
@@ -163,10 +173,31 @@ def create_calulation_dir(new_generation_path,specimen_nr,specimen_coords):
     calculation_dir=os.path.join(new_generation_path,settings.get_calculation_dirname(specimen_nr))
     create_new_path_in_project(calculation_dir)
     prepare_inputdir(calculation_dir,specimen_coords)
+
+def save_current_state(population,errors,gen_numbers):
+    if population.shape[0]==0:
+        return
+    latest_savefile=get_current_savefile()
+    if latest_savefile is None:
+        latest_number=0
+    else:
+        latest_number=settings.get_savefile_number(os.path.basename(latest_savefile))
+    new_savefile_name=settings.get_savefile_name(latest_number+1)
+    path_to_new_savefile=os.path.join(settings.get_savefile_dir(),new_savefile_name)
+    write_savefile(path_to_new_savefile,population,errors,gen_numbers)
+    pass
+
 def read_current_state():
     current_savefile=get_current_savefile()
     population,gen_nr,errors=read_savefile(current_savefile)
     return population,gen_nr,errors
+
+
+def write_savefile(path_to_new_savefile,population,errors,gen_numbers):
+    errors2d=errors.reshape((errors.shape[0],1))
+    gen_numbers2d=gen_numbers.reshape((gen_numbers.shape[0],1))
+    data=np.concatenate((population,errors2d,gen_numbers2d),axis=1)
+    np.savetxt(path_to_new_savefile,data)
 def read_savefile(current_savefile):
     #return old population, gen_nr and error read from savefile
     if current_savefile is None:
@@ -203,7 +234,8 @@ def get_length_of_arrays(current_savefile):
 
 
 def get_current_savefile():
-    dir_of_savefiles=os.path.join(settings.get_run_dir(),settings.g_run_data_dir,settings.g_save_dir)
+    #returns abspath to latest savefile
+    dir_of_savefiles=settings.get_savefile_dir()
     if not os.path.isdir(dir_of_savefiles):
         os.makedirs(dir_of_savefiles)
         return None
