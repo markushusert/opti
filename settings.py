@@ -48,7 +48,7 @@ def get_param_file():
 def get_generation_listfile():
     return os.path.join(get_run_data_dir(),g_generation_list)
 def get_generation_path(generation_nr):
-    new_generation_name=get_generation_dirname(generation_nr)
+    new_generation_name=get_generation_dirname(int(generation_nr))
     return os.path.join(get_run_dir(),g_generation_dir,new_generation_name)
 def get_calculation_dirname(calc_nr):
     return g_calculation_basename+str(calc_nr)

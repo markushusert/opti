@@ -114,7 +114,7 @@ def run_generation(generation_dir):
 def eval_generation(generation_nr):
     path_to_generation=settings.get_generation_path(generation_nr)
     population_to_add=read_population(path_to_generation)
-    gen_nr_to_add=np.ones(population_to_add.shape[0])
+    gen_nr_to_add=np.ones(population_to_add.shape[0],dtype=np.uint)
     if not settings.g_debug:
         download_results(path_to_generation)
     errors_to_add=np.zeros(population_to_add.shape[0])
@@ -208,9 +208,9 @@ def read_savefile(current_savefile):
     else:
         #len=get_length_of_arrays(current_savefile)
         data=np.loadtxt(current_savefile)
-        gen_nrs=np.uint(data[:,0])#first column
-        errors=data[:,1]#second column
-        population=data[:,2:]
+        gen_nrs=np.uint(data[:,-2],dtype=np.uint)#first column
+        errors=data[:,-1]#second column
+        population=data[:,0:-2]
         if population.shape[1] != settings.g_dimension:
             raise Exception(f"population data read from {os.path.abspath(current_savefile)} has wrong shape; expected {settings.g_dimension}; actual {population.shape[1]}")
     return population,gen_nrs,errors
@@ -244,7 +244,8 @@ def get_current_savefile():
         if not len(list_of_savefiles):
             return None
         basename_of_savefiles=[os.path.basename(file) for file in list_of_savefiles]
-        basename_of_newest_savefile=basename_of_savefiles.sort(key=settings.get_savefile_number,reverse=True)[0]
+        basename_of_savefiles.sort(key=settings.get_savefile_number,reverse=True)
+        basename_of_newest_savefile=basename_of_savefiles[0]
         return os.path.join(dir_of_savefiles,basename_of_newest_savefile)
 
 def add_childjob_to_motherjob(childfile,motherfile):

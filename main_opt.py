@@ -36,6 +36,7 @@ def main():
             errors=np.append(errors,errors_to_add,axis=0)
             
             latest_evaluated_generation+=1
+            latest_evaluated_generation=int(latest_evaluated_generation)
 
     new_gen_dir=manage.create_new_generation(population,gen_numbers,errors,latest_evaluated_generation+1)
     manage.run_generation(new_gen_dir)
