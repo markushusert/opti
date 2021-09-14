@@ -1,5 +1,7 @@
+from re import S
 import sys
 import os
+import io
 import settings
 import shutil
 import glob
@@ -32,9 +34,10 @@ def create_new_dir(newdir):
     if not(os.path.isdir(newdir)):
         os.mkdir(newdir)
         #create empty joblist
-        new_joblist=os.path.join(newdir,settings.g_joblistfilename)
+        new_joblist=os.path.join(newdir,settings.get_jobfile_name(newdir))
         open(new_joblist,"a").close()
-        mother_joblist=os.path.join(newdir,"..",settings.g_joblistfilename)
+        mother_dir=os.path.abspath(os.path.join(newdir,".."))
+        mother_joblist=os.path.join(mother_dir,settings.get_jobfile_name(mother_dir))
         add_childjob_to_motherjob(new_joblist,mother_joblist)
 
 def create_empty_generation(generation_name):
@@ -105,7 +108,7 @@ def add_generation_to_list(new_generation_path):
         fil.write(generation_name+"\n")
     return
 def run_generation(generation_dir):
-    jobfile_name=settings.g_joblistfilename
+    jobfile_name=settings.get_jobfile_name(generation_dir)
     cmd=f"serverJob --job {jobfile_name}"
     if settings.g_debug:
         print(f"would be executing \"{cmd}\" in {generation_dir}")
@@ -120,12 +123,22 @@ def eval_generation(generation_nr):
     errors_to_add=np.zeros(population_to_add.shape[0])
     get_errors_of_population(path_to_generation,errors_to_add)
     return population_to_add,gen_nr_to_add,errors_to_add
+
 def write_local_serverjobfile(path_to_calculation_dir):
-    serverjob_file=os.path.join(path_to_calculation_dir,settings.g_joblistfilename)
-    submit_cmd=add_jobdir_to_serverjob(settings.g_submit_cmd,path_to_calculation_dir)
+    serverjob_file=os.path.join(path_to_calculation_dir,settings.get_jobfile_name(path_to_calculation_dir))
+    #submit_cmd=add_jobdir_to_serverjob(settings.g_submit_cmd,path_to_calculation_dir)
+    submit_cmd=""
+    submit_cmd+=get_serverjob_header(serverjob_file)
+    submit_cmd+=(f"{settings.name_of_jobdir_to_pass}=${{{settings.g_jobdir_var}:-.}}; ")
+    submit_cmd+=settings.g_submit_cmd+f" --jobDir ${{{settings.name_of_jobdir_to_pass}}}"
+    submit_cmd+=get_serverjob_footer(path_to_calculation_dir)
     with open(serverjob_file,"w") as fil:
         fil.write(submit_cmd)
-
+def deduct_jobname_from_submit_cmd(submit_cmd):
+    args=submit_cmd.split(" ")
+    for num,arg in enumerate(args):
+        if arg in ["-j","--job"]:
+            return args[num+1]
 def add_jobdir_to_serverjob(submit_cmd,path_to_calculation_dir):
     relpath_from_rundir=os.path.relpath(path_to_calculation_dir,settings.g_run_dir)
     return submit_cmd+f" --jobDir {relpath_from_rundir}"
@@ -157,7 +170,7 @@ def get_error_of_calculation(calculation_dir):
     print(f"evaluated {calculation_dir} to have error: {error}")
     return error
 def download_results(path_to_generation):
-    cmd=f"serverJob --job {settings.g_joblistfilename} --download"
+    cmd=f"serverJob --job {settings.get_jobfile_name(path_to_generation)} --download"
     subprocess.run(cmd,path_to_generation)
 
 def write_population(new_generation_path,population):
@@ -248,16 +261,44 @@ def get_current_savefile():
         basename_of_newest_savefile=basename_of_savefiles[0]
         return os.path.join(dir_of_savefiles,basename_of_newest_savefile)
 
+def get_serverjob_header(motherfile):
+    #if the serverjobfile is the first one to be evaluated, export its path and prepend relpath from project to serverjobfile to --jobDir
+    cmd_string=f"if [ -z ${{{settings.g_start_var_to_export}}} ]; "
+    cmd_string+=f"then export {settings.g_start_var_to_export}={motherfile}; "
+    cmd_string+=f"{settings.g_jobdir_var}={os.path.relpath(os.path.dirname(motherfile),settings.g_run_dir)}; fi; :\n"
+    return cmd_string
+def get_serverjob_footer(motherfile):
+    cmd_string=f"\nif [ ! -z ${{{settings.g_jobdir_var}+x}} ]; then unset {settings.g_start_var_to_export}; fi; :"
+    return cmd_string
+def remove_footer_from_serverjob(serverjobfile):
+    open(serverjobfile,"a").close()
+    with open(serverjobfile,"r") as fil:
+        content=fil.read()
+    footer=get_serverjob_footer(serverjobfile)
+    with open(serverjobfile,"w") as fil:
+        fil.write(content.replace(footer,""))
+
 def add_childjob_to_motherjob(childfile,motherfile):
     child_dir=os.path.dirname(childfile)
     mother_dir=os.path.dirname(motherfile)
     mother_to_child=os.path.relpath(child_dir,mother_dir)
     child_to_mother=os.path.relpath(mother_dir,child_dir)
+    remove_footer_from_serverjob(motherfile)
+    with open(motherfile,"r+") as fil:
+        length=len(fil.readlines())
     with open(motherfile,"a") as fil:
-        fil.write(f"cd {mother_to_child};")
-        fil.write(f"serverJob --job {os.path.basename(childfile)};")
-        fil.write(f"cd {child_to_mother}")
+        if length==0:
+            fil.write(get_serverjob_header(motherfile))
+            fil.write(f"cd {mother_to_child};")
+        else:
+            fil.write(f";cd {mother_to_child};")
+        
+        fil.write(f"{settings.name_of_jobdir_to_pass}=${{{settings.g_jobdir_var}:-.}}/{mother_to_child}; ")
+        fil.write(f"serverJob --job {os.path.basename(childfile)} --jobDir ${{{settings.name_of_jobdir_to_pass}}}")
         fil.write("\n")
+        fil.write(f"cd {child_to_mother};:")#;: is added to finish the cd-command so that no error is raised
+        fil.write(get_serverjob_footer(motherfile))
+        
 
 def add_generation_to_main_joblist(abspath_to_generation):
     with open(settings.get_main_joblist_file(),"r") as fil:

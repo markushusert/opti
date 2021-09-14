@@ -1,5 +1,5 @@
 import os
-from process_control.auxiliary import tryint
+from auxiliary import tryint
 import sys
 import auxiliary as aux
 import numpy as np
@@ -17,6 +17,9 @@ g_param_file="params.txt"
 g_save_dir="saves"
 g_savebasename="save_"
 g_local_pop_file="local_pop.txt"
+g_start_var_to_export="g_serverjob_start"
+g_jobdir_var="jobdir"
+name_of_jobdir_to_pass="jobdir_to_pass"
 
 g_debug=True#flag to indicate that script is still in developpement, and no calculations should be started or evaluated
 
@@ -50,6 +53,13 @@ def get_generation_listfile():
 def get_generation_path(generation_nr):
     new_generation_name=get_generation_dirname(int(generation_nr))
     return os.path.join(get_run_dir(),g_generation_dir,new_generation_name)
+
+def get_jobfile_name(dir):
+    if True:
+        return g_joblistfilename
+    else:
+        #old
+        return os.path.basename(dir)+".list"#serverjobfiles have the names of the directories they lie in
 def get_calculation_dirname(calc_nr):
     return g_calculation_basename+str(calc_nr)
 def get_generation_dirname(new_gen_nr):

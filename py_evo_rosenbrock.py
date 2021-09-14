@@ -150,7 +150,10 @@ def select_good2(errors, alpha2, rng,n):  # gives each individual a probability 
 
   indi=np.searchsorted(prob2,testi)  #index in sorted vector
   idx=indis[indi]  #index in errors
-  idx2=indis[indi+1]  #index parent 2
+  if idx==indis.shape[0]:
+    idx2=idx-1 #last and second to last if idx==last
+  else:
+    idx2=indis[indi+1]  #index parent 2
   return [idx, idx2]
 
 def select_two_good(errors, pct, alpha2, rng):
