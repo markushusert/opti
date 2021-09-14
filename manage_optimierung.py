@@ -294,6 +294,12 @@ def add_childjob_to_motherjob(childfile,motherfile):
             fil.write(f";cd {mother_to_child};")
         
         fil.write(f"{settings.name_of_jobdir_to_pass}=${{{settings.g_jobdir_var}:-.}}/{mother_to_child}; ")
+        #replace all ./ in the jodir, because rsync --relative interacts badly with it (copies whole path starting from .)
+        fil.write(f"{settings.name_of_jobdir_to_pass}=${{{settings.name_of_jobdir_to_pass}//'./'/''}}; ")
+        if False:
+            fil.write(f"if [ -z ${{{settings.g_jobdir_var}}} ]; ")
+            fil.write(f"then {settings.name_of_jobdir_to_pass}={mother_to_child}; ")
+            fil.write(f"else {settings.name_of_jobdir_to_pass}=${{{settings.g_jobdir_var}}}/{mother_to_child}; fi; ")
         fil.write(f"serverJob --job {os.path.basename(childfile)} --jobDir ${{{settings.name_of_jobdir_to_pass}}}")
         fil.write("\n")
         fil.write(f"cd {child_to_mother};:")#;: is added to finish the cd-command so that no error is raised
