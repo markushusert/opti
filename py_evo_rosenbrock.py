@@ -6,6 +6,7 @@ import numpy as np
 from numpy.core.fromnumeric import argsort
 import matplotlib.pyplot as plt
 import os
+import pyDOE
 
 def opti(pop_size, max_gen, alpha, alpha2, sigma,
   rng, dim, range_in, mut_width, n_child):
@@ -88,6 +89,9 @@ def error(soln):
   return np.abs(0.0 - computed) 
 
 def load_population(popsize, dim, rng, range_in):
+  pop=pyDOE.lhs(dim,samples=popsize,criterion='corr',iterations=1000)
+  pop=range_in[0]+pop*(range_in[1]-range_in[0])
+  return pop
   return np.float32(rng.uniform(low=range_in[0], high=range_in[1],
     size=(popsize,dim)))
 def make_child_population(population,errors,mutation_width,alpha, alpha2,n_child,range_in):
