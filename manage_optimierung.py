@@ -117,7 +117,7 @@ def run_generation(generation_dir):
 def eval_generation(generation_nr):
     path_to_generation=settings.get_generation_path(generation_nr)
     population_to_add=read_population(path_to_generation)
-    gen_nr_to_add=np.ones(population_to_add.shape[0],dtype=np.uint)
+    gen_nr_to_add=np.ones(population_to_add.shape[0],dtype=np.uint)*generation_nr
     if not settings.g_debug:
         download_results(path_to_generation)
     errors_to_add=np.zeros(population_to_add.shape[0])
@@ -187,7 +187,7 @@ def save_current_state(population,errors,gen_numbers):
         return
     latest_savefile=get_current_savefile()
     if latest_savefile is None:
-        latest_number=0
+        latest_number=-1
     else:
         latest_number=settings.get_savefile_number(os.path.basename(latest_savefile))
     new_savefile_name=settings.get_savefile_name(latest_number+1)
