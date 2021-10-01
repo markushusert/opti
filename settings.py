@@ -115,12 +115,16 @@ def read_settings():
                         for key in g_settings_to_read:
                             if line.startswith(key+"="):
                                 found_setting[key]=True
-                                try:
-                                    value=line.split("=",1)[1].strip()
-                                    globals()[key]=eval(value)
-                                except:
-                                    print(f"error evaluating \"{value}\"")
-                                    raise Exception
+                                value=line.split("=",1)[1].strip()
+                                if key.endswith("cmd"):
+                                    #save cmds as string
+                                    globals()[key]=value
+                                else:#other settings are evaled
+                                    try:
+                                        globals()[key]=eval(value)
+                                    except:
+                                        print(f"error evaluating \"{value}\"")
+                                        raise Exception
 
                                 if key.endswith("dir"):
                                     #interpret paths in settings.txt relative to given textfile

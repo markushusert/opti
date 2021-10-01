@@ -154,20 +154,15 @@ def get_errors_of_population(path_to_generation,errors_to_add):
 
 def get_error_of_calculation(calculation_dir):
     error_key="error="
-    if settings.g_debug:
-        error=np.random.uniform(0,1)#random error between 0 and 1
-        
+    #executable=settings.g_post_cmd#"/home/markus/ParaView-5.9.0-MPI-Linux-Python3.8-64bit/python_scripts/auswerte_scripte/show_qs.py"
+    complete_proc=subprocess.run(["bash","-c",settings.g_post_cmd],cwd=calculation_dir,capture_output=True)#popen benutzen und err_ges printen
+    output_lines=complete_proc.stdout.decode("ascii").splitlines()
+    for line in output_lines:
+        if line.startswith(error_key):
+            error=float(line.rsplit("=",1)[1])
+            break
     else:
-        executable=settings.g_post_cmd#"/home/markus/ParaView-5.9.0-MPI-Linux-Python3.8-64bit/python_scripts/auswerte_scripte/show_qs.py"
-        complete_proc=subprocess.run(executable,cwd=calculation_dir,capture_output=True)#popen benutzen und err_ges printen
-        output_lines=complete_proc.stdout.decode("ascii").splitlines()
-        for line in output_lines:
-            if line.startswith[error_key]:
-                error=float(line.rsplit("=",1)[1])
-                break
-        else:
-            raise ValueError(f"post-programm did not print error_message: {error_key}")
-    print(f"evaluated {calculation_dir} to have error: {error}")
+        raise ValueError(f"post-programm did not print error_message: {error_key}")
     return error
 def download_results(path_to_generation):
     cmd=f"serverJob --job {settings.get_jobfile_name(path_to_generation)} --download"
