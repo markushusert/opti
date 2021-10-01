@@ -204,7 +204,7 @@ def read_current_state():
 def write_savefile(path_to_new_savefile,population,errors,gen_numbers):
     errors2d=errors.reshape((errors.shape[0],1))
     gen_numbers2d=gen_numbers.reshape((gen_numbers.shape[0],1))
-    data=np.concatenate((population,errors2d,gen_numbers2d),axis=1)
+    data=np.concatenate((population,gen_numbers2d,errors2d),axis=1)
     np.savetxt(path_to_new_savefile,data)
 def read_savefile(current_savefile):
     #return old population, gen_nr and error read from savefile
@@ -216,8 +216,8 @@ def read_savefile(current_savefile):
     else:
         #len=get_length_of_arrays(current_savefile)
         data=np.loadtxt(current_savefile)
-        gen_nrs=np.uint(data[:,-2],dtype=np.uint)#first column
-        errors=data[:,-1]#second column
+        gen_nrs=np.uint(data[:,-2],dtype=np.uint)
+        errors=data[:,-1]
         population=data[:,0:-2]
         if population.shape[1] != settings.g_dimension:
             raise Exception(f"population data read from {os.path.abspath(current_savefile)} has wrong shape; expected {settings.g_dimension}; actual {population.shape[1]}")
