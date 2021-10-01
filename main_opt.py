@@ -27,7 +27,7 @@ def main():
     generation_list=manage.get_all_gens()
     number_run_generations=len(generation_list)
     population,gen_numbers,errors=manage.read_current_state()
-    latest_evaluated_generation=gen_numbers[-1] if gen_numbers.size else -1
+    latest_evaluated_generation=int(gen_numbers[-1] if gen_numbers.size else -1)
     if len(generation_list)!=0:#there exist some generation folders
         while number_run_generations>latest_evaluated_generation+1:#+1 because first generation starts at 0
             population_to_add,gen_nr_to_add,errors_to_add=manage.eval_generation(latest_evaluated_generation+1)
@@ -36,7 +36,6 @@ def main():
             errors=np.append(errors,errors_to_add,axis=0)
             
             latest_evaluated_generation+=1
-            latest_evaluated_generation=int(latest_evaluated_generation)
 
     new_gen_dir=manage.create_new_generation(population,gen_numbers,errors,latest_evaluated_generation+1)
     manage.run_generation(new_gen_dir)
