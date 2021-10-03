@@ -29,11 +29,12 @@ if not os.path.isdir(g_settings_dir):
     print("make sure you are starting script in correct directory")
 g_joblistfilename="job.list"
 
-g_settings_to_read=["g_dimension","g_pop_size","g_submit_cmd","g_post_cmd","g_mutation_width","g_alpha","g_alpha2"]
+g_settings_to_read=["g_dimension","g_pop_size","g_submit_cmd","g_post_cmd","g_mutation_width","g_alpha","g_alpha2","g_cleanup_cmd"]
 g_dimension=None
 g_pop_size=None
 g_submit_cmd=None
 g_post_cmd=None
+g_cleanup_cmd=None
 g_mutation_width=None
 g_alpha=None
 g_alpha2=None

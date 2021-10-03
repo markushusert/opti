@@ -150,19 +150,24 @@ def get_errors_of_population(path_to_generation,errors_to_add):
     calculation_dirs.sort(key=get_gen_nr)
     for dir_nr,dir in enumerate(calculation_dirs):
         errors_to_add[dir_nr]=get_error_of_calculation(dir)
-    
-
+def execute_cmd(dir,cmd):
+    complete_proc=subprocess.run(["bash","-c",cmd],cwd=dir,capture_output=True)#popen benutzen und err_ges printen
+    if complete_proc.returncode != 0:
+        raise Exception(f"the execution of command {cmd} raise errorcode {complete_proc.returncode}")
+    else:
+        output_lines=complete_proc.stdout.decode("ascii").splitlines()
+        return output_lines
 def get_error_of_calculation(calculation_dir):
     error_key="error="
     #executable=settings.g_post_cmd#"/home/markus/ParaView-5.9.0-MPI-Linux-Python3.8-64bit/python_scripts/auswerte_scripte/show_qs.py"
-    complete_proc=subprocess.run(["bash","-c",settings.g_post_cmd],cwd=calculation_dir,capture_output=True)#popen benutzen und err_ges printen
-    output_lines=complete_proc.stdout.decode("ascii").splitlines()
+    output_lines=execute_cmd(calculation_dir,settings.g_post_cmd)
     for line in output_lines:
         if line.startswith(error_key):
             error=float(line.rsplit("=",1)[1])
             break
     else:
-        raise ValueError(f"post-programm did not print error_message: {error_key}")
+        raise ValueError(f"post-cmd, {settings.g_post_cmd}, did not print error_message: {error_key}")
+    execute_cmd(calculation_dir,settings.g_cleanup_cmd)
     return error
 def download_results(path_to_generation):
     cmd=f"serverJob --job {settings.get_jobfile_name(path_to_generation)} --download"
