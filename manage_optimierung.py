@@ -54,6 +54,7 @@ def create_empty_generation(generation_name):
         #add_generation_to_main_joblist(generation_joblist)
 
 def get_parameters_to_set(coordinates):
+    #coordinates is a 1d numpy.ndarray of dtype float and size dim, meant to be used in the eval
     parameter_value_dict={}
     parameter_textfile=settings.get_param_file()
     with open(parameter_textfile,"r") as fil:
